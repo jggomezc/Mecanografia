@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tutor de Mecanografía</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap');
+
+        body {
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        /* --- Fondo Animado --- */
+        .animated-bg {
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* --- Estilos para el texto a escribir --- */
+        #text-to-type {
+            font-size: 1.75rem;
+            letter-spacing: 2px;
+            white-space: pre-wrap; 
+            word-break: break-all;
+        }
+        
+        #text-to-type span {
+            transition: color 0.2s, background-color 0.2s;
+        }
+
+        /* --- Estilo del cursor (ahora es parte de la letra actual) --- */
+        .char-current {
+            color: #10b981; /* CORRECCIÓN: a verde esmeralda (emerald-500) */
+            background-color: rgba(16, 185, 129, 0.2); /* CORRECCIÓN: fondo verde */
+            border-radius: 4px;
+            position: relative;
+        }
+        
+        .char-current::before {
+            content: "";
+            position: absolute;
+            left: -2px;
+            top: 10%;
+            height: 80%;
+            width: 2px;
+            background-color: #6ee7b7; /* CORRECCIÓN: cursor verde (emerald-300) */
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .char-correct {
+            color: #d1d5db; /* gray-300 */
+        }
+        
+        .char-incorrect {
+            color: #fca5a5; /* red-300 */
+            background-color: #991b1b; /* red-900 */
+            border-radius: 4px;
+            text-decoration: underline;
+        }
+        
+        #text-container {
+            scroll-behavior: smooth;
+            overflow-y: auto;
+            max-height: 16rem; /* Aprox. 6-7 líneas de texto */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen p-4">
+    <div class="animated-bg"></div>
+
+    <main class="grid lg:grid-cols-3 gap-8 w-full max-w-7xl mx-auto bg-gray-800 bg-opacity-70 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
+        
+        <!-- Sección Principal de Mecanografía -->
+        <div class="lg:col-span-2 flex flex-col gap-6">
+            <h1 class="text-3xl font-bold text-center text-white tracking-wider">Tutor de Mecanografía</h1>
+            
+            <div id="stats" class="flex justify-around items-center bg-gray-900 bg-opacity-50 p-4 rounded-lg text-center">
+                <div>
+                    <div class="text-sm text-cyan-400">Tiempo</div>
+                    <div id="timer" class="text-2xl font-semibold">0.0s</div>
+                </div>
+                <div>
+                    <div class="text-sm text-cyan-400">Errores</div>
+                    <div id="errors" class="text-2xl font-semibold">0</div>
+                </div>
+                 <div>
+                    <div class="text-sm text-cyan-400">Velocidad</div>
+                    <div id="speed" class="text-2xl font-semibold">0.00 c/s</div>
+                </div>
+            </div>
+
+            <div id="text-container" class="relative bg-gray-900 p-6 rounded-lg select-none cursor-text">
+                <div id="text-to-type">
+                    <span class="text-gray-500">Selecciona un nivel para comenzar...</span>
+                </div>
+            </div>
+            
+            <button id="reset-button" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 text-lg">
+                Reiniciar Prueba
+            </button>
+        </div>
+
+        <!-- Panel de Control y Niveles -->
+        <aside class="bg-gray-900 bg-opacity-50 p-6 rounded-lg flex flex-col gap-4">
+            <h2 class="text-xl font-bold text-center text-white mb-4">Niveles</h2>
+            <select id="level-selector" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block w-full p-2.5">
+                <!-- Opciones de nivel generadas por JS -->
+            </select>
+
+            <div id="custom-text-area" class="hidden flex flex-col gap-2 mt-4">
+                <label for="custom-text-input" class="text-sm font-medium text-gray-300">Introduce tu texto personalizado:</label>
+                <textarea id="custom-text-input" rows="6" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block w-full p-2.5" placeholder="Pega o escribe tu texto aquí..."></textarea>
+                <button id="start-custom-test" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 mt-2">
+                    Iniciar con este Texto
+                </button>
+            </div>
+        </aside>
+
+    </main>
+    
+    <!-- Modal para Resultados -->
+    <div id="results-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full text-center border border-cyan-500">
+            <h2 class="text-3xl font-bold mb-4 text-cyan-400">¡Prueba Completada!</h2>
+            <div class="space-y-4 text-lg">
+                <p>Caracteres Totales: <strong id="modal-chars" class="text-white text-xl">0</strong></p>
+                <p>Número de Errores: <strong id="modal-errors" class="text-white text-xl">0</strong></p>
+                <p>Velocidad (c/s): <strong id="modal-speed" class="text-white text-xl">0.00</strong></p>
+                <hr class="border-gray-600 my-6">
+                <p class="text-2xl">Calificación Final:</p>
+                <p><strong id="modal-score" class="text-cyan-400 text-5xl font-bold">20.00</strong> / 20</p>
+            </div>
+            <button id="close-modal-button" class="mt-8 bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg transition-colors w-full">
+                Intentar de Nuevo
+            </button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const textToTypeEl = document.getElementById('text-to-type');
+            const timerEl = document.getElementById('timer');
+            const errorsEl = document.getElementById('errors');
+            const speedEl = document.getElementById('speed');
+            const levelSelector = document.getElementById('level-selector');
+            const customTextArea = document.getElementById('custom-text-area');
+            const customTextInput = document.getElementById('custom-text-input');
+            const startCustomTestBtn = document.getElementById('start-custom-test');
+            const resetButton = document.getElementById('reset-button');
+            const resultsModal = document.getElementById('results-modal');
+            const closeModalButton = document.getElementById('close-modal-button');
+            const textContainer = document.getElementById('text-container');
+            
+            // --- Game State ---
+            let testActive = false;
+            let startTime;
+            let timerInterval;
+            let currentText = '';
+            let currentIndex = 0;
+            let errorCount = 0;
+
+            // --- Levels Definition ---
+            const levels = [
+                // Teclas Guía
+                { name: "Guía - Pares (as,df)", text: "as as df df as df df as" },
+                { name: "Guía - Pares (jk,lñ)", text: "jk jk lñ lñ jk lñ lñ jk" },
+                { name: "Guía - 4 Teclas (asdf)", text: "asdf asdf fads fads" },
+                { name: "Guía - 4 Teclas (jklñ)", text: "jklñ jklñ ñlkj ñlkj" },
+                { name: "Guía - Fila Completa", text: "asdfg hjklñ asdfg hjklñ" },
+                { name: "Guía - Palabras", text: "gasa faja hada faja alga" },
+
+                // Fila Superior
+                { name: "Superior - Pares (qw,er)", text: "qw qw er er qw er er qw" },
+                { name: "Superior - Pares (ui,op)", text: "ui ui op op ui op op ui" },
+                { name: "Superior - 4 Teclas (qwer)", text: "qwer qwer rewq rewq" },
+                { name: "Superior - 4 Teclas (uiop)", text: "uiop uiop poiu poiu" },
+                { name: "Superior - Fila Completa", text: "qwert yuiop qwert yuiop" },
+                { name: "Superior - Palabras", text: "ropa quiero perro auto tipo" },
+
+                // Fila Inferior
+                { name: "Inferior - Pares (zx,cv)", text: "zx zx cv cv zx cv cv zx" },
+                { name: "Inferior - Pares (m,,.-)", text: "m, m, .- .- m, .- .- m," },
+                { name: "Inferior - 4 Teclas (zxcv)", text: "zxcv zxcv vcxz vcxz" },
+                { name: "Inferior - 4 Teclas (nm,.)", text: "nm,. nm,. .,mn .,mn" },
+                { name: "Inferior - Fila Completa", text: "zxcvb nm,.- zxcvb nm,.-" },
+                { name: "Inferior - Palabras", text: "caza vez como bueno maximo" },
+                
+                // Mezcla de Filas
+                { name: "Avanzado - Mezcla 1", text: "la casa azul es muy bonita para vivir" },
+                { name: "Avanzado - Mezcla 2", text: "el veloz murciélago hindú comía feliz cardillo y kiwi" },
+                { name: "Avanzado - Programación", text: "function() { console.log('Hello World'); }" },
+            ];
+
+            // --- Functions ---
+            
+            function populateLevels() {
+                levels.forEach((level, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = level.name;
+                    levelSelector.appendChild(option);
+                });
+                const customOption = document.createElement('option');
+                customOption.value = 'custom';
+                customOption.textContent = 'Texto Personalizado';
+                levelSelector.appendChild(customOption);
+            }
+            
+            function resetGame() {
+                testActive = false;
+                clearInterval(timerInterval);
+                startTime = null;
+                currentIndex = 0;
+                errorCount = 0;
+                timerEl.textContent = '0.0s';
+                errorsEl.textContent = '0';
+                speedEl.textContent = '0.00 c/s';
+                resultsModal.classList.add('hidden');
+            }
+
+            function loadText(text) {
+                resetGame();
+                currentText = text;
+                textToTypeEl.innerHTML = '';
+                currentText.split('').forEach(char => {
+                    const span = document.createElement('span');
+                    span.textContent = char;
+                    textToTypeEl.appendChild(span);
+                });
+                if (textToTypeEl.children.length > 0) {
+                    textToTypeEl.children[0].classList.add('char-current');
+                }
+                textContainer.scrollTop = 0; 
+            }
+
+            function handleKeyDown(event) {
+                if (!currentText || !resultsModal.classList.contains('hidden') || event.target === customTextInput) {
+                    return;
+                }
+                if (event.key === 'Backspace') {
+                     event.preventDefault();
+                     return;
+                }
+                if (event.key.length !== 1) {
+                    return;
+                }
+                event.preventDefault();
+
+                if (!testActive) {
+                    testActive = true;
+                    startTime = new Date();
+                    timerInterval = setInterval(updateStats, 100);
+                }
+
+                const typedChar = event.key;
+                const expectedChar = currentText[currentIndex];
+                const charSpan = textToTypeEl.children[currentIndex];
+
+                if (!charSpan) return;
+
+                charSpan.classList.remove('char-current');
+
+                if (typedChar === expectedChar) {
+                    charSpan.classList.add('char-correct');
+                } else {
+                    charSpan.classList.add('char-incorrect');
+                    errorCount++;
+                    errorsEl.textContent = errorCount;
+                }
+                
+                currentIndex++;
+                
+                if (currentIndex >= currentText.length) {
+                    finishTest();
+                } else {
+                    const nextCharSpan = textToTypeEl.children[currentIndex];
+                    nextCharSpan.classList.add('char-current');
+                    
+                    const containerRect = textContainer.getBoundingClientRect();
+                    const charRect = nextCharSpan.getBoundingClientRect();
+
+                    if (charRect.bottom > containerRect.bottom) {
+                        textContainer.scrollTop += charRect.bottom - containerRect.bottom;
+                    } else if (charRect.top < containerRect.top) {
+                        textContainer.scrollTop -= containerRect.top - charRect.top;
+                    }
+                }
+            }
+            
+            function updateStats() {
+                if (!testActive) return;
+                const elapsedTime = (new Date() - startTime) / 1000;
+                timerEl.textContent = `${elapsedTime.toFixed(1)}s`;
+                const currentSpeed = currentIndex > 0 ? (currentIndex / elapsedTime).toFixed(2) : '0.00';
+                speedEl.textContent = `${currentSpeed} c/s`;
+            }
+
+            function finishTest() {
+                if (!testActive) return;
+                testActive = false;
+                clearInterval(timerInterval);
+                const totalTime = (new Date() - startTime) / 1000;
+                
+                const totalChars = currentText.length;
+                const speed = totalTime > 0 ? (totalChars / totalTime).toFixed(2) : '0.00';
+                
+                // CORRECCIÓN: La velocidad perfecta se cambia a 1.5
+                const perfectSpeed = 1.5; 
+                const expectedTime = totalChars / perfectSpeed;
+                const timeDelay = Math.max(0, totalTime - expectedTime);
+                
+                let score = 20;
+                score -= timeDelay * 0.25;
+                score -= errorCount * 1.25;
+                score = Math.max(0, score).toFixed(2);
+                
+                document.getElementById('modal-chars').textContent = totalChars;
+                document.getElementById('modal-errors').textContent = errorCount;
+                document.getElementById('modal-speed').textContent = speed;
+                document.getElementById('modal-score').textContent = score;
+                resultsModal.classList.remove('hidden');
+            }
+
+            // --- Event Listeners ---
+            document.addEventListener('keydown', handleKeyDown);
+            
+            levelSelector.addEventListener('change', () => {
+                const selectedValue = levelSelector.value;
+                if (selectedValue === 'custom') {
+                    customTextArea.classList.remove('hidden');
+                    resetGame();
+                    textToTypeEl.innerHTML = '<span class="text-gray-500">Introduce texto y presiona el botón...</span>';
+                    currentText = '';
+                } else {
+                    customTextArea.classList.add('hidden');
+                    loadText(levels[selectedValue].text);
+                }
+            });
+
+            startCustomTestBtn.addEventListener('click', () => {
+                const customText = customTextInput.value.trim();
+                if (customText) {
+                    loadText(customText);
+                }
+            });
+
+            resetButton.addEventListener('click', () => {
+                 const selectedValue = levelSelector.value;
+                 if (selectedValue === 'custom') {
+                    const customText = customTextInput.value.trim();
+                     if (customText) {
+                         loadText(customText);
+                     } else {
+                        resetGame();
+                        textToTypeEl.innerHTML = '<span class="text-gray-500">Introduce texto y presiona el botón...</span>';
+                        currentText = '';
+                     }
+                 } else {
+                    loadText(levels[selectedValue].text);
+                 }
+            });
+            
+            closeModalButton.addEventListener('click', () => {
+                 resetButton.click();
+            });
+
+            // --- Initial Load ---
+            populateLevels();
+            levelSelector.value = 0;
+            loadText(levels[0].text);
+        });
+    </script>
+</body>
+</html>
